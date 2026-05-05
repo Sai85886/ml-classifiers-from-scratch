@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from Decision_trees.decision_tree import DecisionTreeClassifier, _majority_class
+from decision_tree import DecisionTreeClassifier, _majority_class
 
 
 def bootstrap_sample(X: pd.DataFrame, y: pd.Series, rng: np.random.Generator) -> Tuple[pd.DataFrame, pd.Series]:
