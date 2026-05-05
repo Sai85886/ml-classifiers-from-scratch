@@ -1,0 +1,8 @@
+{
+  "extra_credit": true,
+  "stopping_criterion": "fixed_number_of_epochs",
+  "m_epochs": 100,
+  "alpha": 1.0,
+  "batch_size": 64,
+  "k_folds": 5
+}
