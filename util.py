@@ -7,7 +7,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from sklearn.datasets import load_digits
+from sklearn.datasets import fetch_openml, load_digits
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 for folder in ["KNN", "RandomForests", "NeuralNetworks"]:
@@ -409,4 +409,32 @@ def load_credit_data(path):
             X[col] = pd.to_numeric(X[col], errors="coerce")
     X = X.fillna(0.0)
     y = pd.to_numeric(df.iloc[:, -1], errors="coerce").fillna(0).astype(int)
+    return X, y
+
+
+def load_zoo_data():
+    """Load the Zoo dataset (mixed attributes, 7 classes)."""
+    data = fetch_openml(name="zoo", version=1, as_frame=True)
+    df = data.frame.copy()
+
+    y_text = df.iloc[:, -1].astype(str)
+    X = df.iloc[:, :-1].copy()
+
+    # The first column is typically an animal name; remove non-informative ID-like text.
+    if X.columns[0].lower() in {"animal_name", "name"}:
+        X = X.iloc[:, 1:]
+
+    # One-hot any categorical columns; keep numeric columns as-is.
+    cat_cols = [c for c in X.columns if str(X[c].dtype) in ("category", "object")]
+    if cat_cols:
+        X = pd.get_dummies(X, columns=cat_cols, drop_first=False)
+
+    for col in X.columns:
+        if X[col].dtype == object:
+            X[col] = pd.to_numeric(X[col], errors="coerce")
+    X = X.fillna(0.0)
+
+    labels = sorted(y_text.unique())
+    mapping = {label: i for i, label in enumerate(labels)}
+    y = y_text.map(mapping).astype(int)
     return X, y
