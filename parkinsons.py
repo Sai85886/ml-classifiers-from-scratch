@@ -2,7 +2,14 @@ import os
 
 import pandas as pd
 
-from util import load_parkinsons_data, run_cv, save_basic_plot
+from util import (
+    cv_score,
+    load_parkinsons_data,
+    nn_learning_curve,
+    plot_learning_curve,
+    plot_metric_vs_param,
+    plot_metric_vs_param_grouped,
+)
 
 
 def run():
@@ -11,9 +18,32 @@ def run():
     os.makedirs(out_dir, exist_ok=True)
 
     X, y = load_parkinsons_data(os.path.join(root, "parkinsons.csv"))
+    multiclass = False
+    all_rows = []
 
-    knn_grid = [{"k": k} for k in [1, 3, 5, 7, 9, 11]]
-    rf_grid = [{"n_trees": n} for n in [10, 30, 50, 75, 100, 150]]
+    knn_rows = []
+    for k in [1, 3, 5, 7, 9, 11, 15]:
+        result = cv_score(X, y, "knn", {"k": k}, normalize=True, multiclass=multiclass)
+        result.update({"model": "knn", "k": k})
+        knn_rows.append(result)
+        all_rows.append(result)
+    knn_df = pd.DataFrame(knn_rows)
+    plot_metric_vs_param(knn_df, "k", "Parkinsons - KNN", out_dir, "knn", x_label="k (neighbors)")
+
+    rf_rows = []
+    for criterion in ["info_gain", "gini"]:
+        for n_trees in [10, 30, 50, 75, 100, 150]:
+            params = {"n_trees": n_trees, "criterion": criterion}
+            result = cv_score(X, y, "random_forest", params, multiclass=multiclass)
+            result.update({"model": "random_forest", "n_trees": n_trees, "criterion": criterion})
+            rf_rows.append(result)
+            all_rows.append(result)
+    rf_df = pd.DataFrame(rf_rows)
+    plot_metric_vs_param_grouped(
+        rf_df, "n_trees", "criterion", "Parkinsons - Random Forest",
+        out_dir, "rf", x_label="ntree",
+    )
+
     nn_grid = [
         {"layer_sizes": [8], "lam": 0.0, "alpha": 0.7, "max_epochs": 120, "batch_size": 64},
         {"layer_sizes": [8], "lam": 0.01, "alpha": 0.7, "max_epochs": 120, "batch_size": 64},
@@ -22,18 +52,27 @@ def run():
         {"layer_sizes": [8, 8], "lam": 0.01, "alpha": 0.7, "max_epochs": 120, "batch_size": 64},
         {"layer_sizes": [16, 8], "lam": 0.1, "alpha": 0.7, "max_epochs": 120, "batch_size": 64},
     ]
+    nn_rows = []
+    for params in nn_grid:
+        result = cv_score(X, y, "neural_network", params, normalize=True, multiclass=multiclass)
+        label = f"{params['layer_sizes']}, lam={params['lam']}"
+        result.update({"model": "neural_network", "config": label, "layer_sizes": str(params["layer_sizes"]), "lam": params["lam"]})
+        nn_rows.append(result)
+        all_rows.append(result)
+    nn_df = pd.DataFrame(nn_rows).sort_values("mean_f1", ascending=False).reset_index(drop=True)
+    nn_df.to_csv(os.path.join(out_dir, "nn_configs.csv"), index=False)
 
-    knn_df = run_cv(X, y, "knn", knn_grid, normalize=True, multiclass=False, positive_label=1)
-    rf_df = run_cv(X, y, "random_forest", rf_grid, normalize=False, multiclass=False, positive_label=1)
-    nn_df = run_cv(X, y, "neural_network", nn_grid, normalize=True, multiclass=False, positive_label=1)
+    best_label = nn_df.iloc[0]["config"]
+    best_params = nn_grid[[i for i, p in enumerate(nn_grid)
+                           if f"{p['layer_sizes']}, lam={p['lam']}" == best_label][0]]
 
-    save_basic_plot(knn_df, "Parkinsons - KNN configs", os.path.join(out_dir, "knn_f1_curve.png"))
-    save_basic_plot(rf_df, "Parkinsons - Random Forest configs", os.path.join(out_dir, "rf_f1_curve.png"))
-    save_basic_plot(nn_df, "Parkinsons - Neural Network configs", os.path.join(out_dir, "nn_f1_curve.png"))
+    lc_df = nn_learning_curve(X, y, best_params, multiclass=multiclass, normalize=True)
+    lc_df.to_csv(os.path.join(out_dir, "nn_learning_curve.csv"), index=False)
+    plot_learning_curve(lc_df, f"Parkinsons - NN learning curve ({best_label})",
+                        os.path.join(out_dir, "nn_learning_curve.png"))
 
-    final_df = pd.concat([knn_df, rf_df, nn_df], ignore_index=True)
-    final_df.to_csv(os.path.join(out_dir, "parkinsons_cv_results.csv"), index=False)
-    print("Saved parkinsons results in outputs/parkinsons")
+    pd.DataFrame(all_rows).to_csv(os.path.join(out_dir, "parkinsons_cv_results.csv"), index=False)
+    print(f"Saved parkinsons results in {out_dir}")
 
 
 if __name__ == "__main__":

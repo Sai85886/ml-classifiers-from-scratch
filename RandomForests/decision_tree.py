@@ -17,6 +17,19 @@ def entropy(y: Sequence[Any]) -> float:
     return float(-np.sum(probs * np.log2(probs + 1e-12)))
 
 
+def gini(y: Sequence[Any]) -> float:
+    # Same idea as entropy but uses 1 - sum(p^2). Used as an alternative split criterion.
+    values, counts = np.unique(np.asarray(y), return_counts=True)
+    probs = counts / max(len(y), 1)
+    return float(1.0 - np.sum(probs ** 2))
+
+
+def _impurity_fn(criterion: str):
+    if criterion == "gini":
+        return gini
+    return entropy
+
+
 def _majority_class(y: Sequence[Any]) -> Any:
     # When we stop splitting, guess the most common label in this bucket.
     values, counts = np.unique(np.asarray(y), return_counts=True)
@@ -28,22 +41,22 @@ def _is_numeric_series(s: pd.Series) -> bool:
     return pd.api.types.is_numeric_dtype(s)
 
 
-def information_gain_categorical(x_col: pd.Series, y: pd.Series) -> float:
+def _split_gain_categorical(x_col: pd.Series, y: pd.Series, parent_impurity: float, impurity_fn) -> float:
     # Split quality for a categorical column: branch one child per category value.
-    total_entropy = entropy(y)
     values, counts = np.unique(x_col.to_numpy(), return_counts=True)
-    weighted_entropy = 0.0
+    weighted = 0.0
     n = len(y)
     for v, c in zip(values, counts):
         subset_y = y[x_col == v]
         # Weight each branch by how many rows go there.
-        weighted_entropy += (c / n) * entropy(subset_y)
-    return float(total_entropy - weighted_entropy)
+        weighted += (c / n) * impurity_fn(subset_y)
+    return float(parent_impurity - weighted)
 
 
-def information_gain_numeric(x_col: pd.Series, y: pd.Series, threshold: float) -> float:
+def _split_gain_numeric(
+    x_col: pd.Series, y: pd.Series, threshold: float, parent_impurity: float, impurity_fn
+) -> float:
     # Split quality for a number: rows <= threshold go left, the rest go right.
-    total_entropy = entropy(y)
     left_mask = x_col <= threshold
     right_mask = ~left_mask
 
@@ -58,8 +71,18 @@ def information_gain_numeric(x_col: pd.Series, y: pd.Series, threshold: float) -
     if len(y_left) == 0 or len(y_right) == 0:
         return 0.0
 
-    weighted_entropy = (len(y_left) / n) * entropy(y_left) + (len(y_right) / n) * entropy(y_right)
-    return float(total_entropy - weighted_entropy)
+    weighted = (len(y_left) / n) * impurity_fn(y_left) + (len(y_right) / n) * impurity_fn(y_right)
+    return float(parent_impurity - weighted)
+
+
+def information_gain_categorical(x_col: pd.Series, y: pd.Series) -> float:
+    # Backwards-compat wrapper: entropy-based information gain.
+    return _split_gain_categorical(x_col, y, entropy(y), entropy)
+
+
+def information_gain_numeric(x_col: pd.Series, y: pd.Series, threshold: float) -> float:
+    # Backwards-compat wrapper: entropy-based information gain.
+    return _split_gain_numeric(x_col, y, threshold, entropy(y), entropy)
 
 
 class _Leaf:
@@ -100,11 +123,14 @@ class DecisionTreeClassifier:
         max_depth: Optional[int] = None,
         min_size_for_split: int = 2,
         min_gain: float = 0.0,
+        criterion: str = "info_gain",
         random_state: Optional[int] = None,
     ) -> None:
         self.max_depth = max_depth
         self.min_size_for_split = int(min_size_for_split)
         self.min_gain = float(min_gain)
+        # "info_gain" uses entropy (HW1 default); "gini" uses 1 - sum(p^2).
+        self.criterion = criterion
         self.random_state = random_state
         # Randomness only matters when we subsample features at each split (random forest).
         self._rng = np.random.default_rng(random_state)
@@ -164,6 +190,9 @@ class DecisionTreeClassifier:
         if m_try is not None and m_try < len(features):
             features = list(self._rng.choice(features, size=m_try, replace=False))
 
+        impurity = _impurity_fn(self.criterion)
+        parent_impurity = impurity(y)
+
         best_gain = -1.0
         best_feature: Optional[str] = None
         best_is_numeric = False
@@ -174,14 +203,14 @@ class DecisionTreeClassifier:
             if _is_numeric_series(col):
                 # HW3 allows using the mean as the split point for numeric attributes.
                 thr = float(col.mean())
-                gain = information_gain_numeric(col.astype(float), y, thr)
+                gain = _split_gain_numeric(col.astype(float), y, thr, parent_impurity, impurity)
                 if gain > best_gain:
                     best_gain = gain
                     best_feature = feature
                     best_is_numeric = True
                     best_threshold = thr
             else:
-                gain = information_gain_categorical(col.astype(object), y)
+                gain = _split_gain_categorical(col.astype(object), y, parent_impurity, impurity)
                 if gain > best_gain:
                     best_gain = gain
                     best_feature = feature

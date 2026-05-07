@@ -31,6 +31,7 @@ class RandomForestClassifier:
         max_depth: Optional[int] = None,
         min_size_for_split: int = 2,
         min_gain: float = 0.0,
+        criterion: str = "info_gain",
         random_state: Optional[int] = None,
     ) -> None:
         self.n_trees = n_trees
@@ -39,6 +40,8 @@ class RandomForestClassifier:
         self.max_depth = max_depth
         self.min_size_for_split = min_size_for_split
         self.min_gain = min_gain
+        # Same as the underlying decision tree: "info_gain" (entropy) or "gini".
+        self.criterion = criterion
         self.random_state = random_state
         self._rng = np.random.default_rng(random_state)
         self.trees: List[DecisionTreeClassifier] = []
@@ -60,6 +63,7 @@ class RandomForestClassifier:
                 max_depth=self.max_depth,
                 min_size_for_split=self.min_size_for_split,
                 min_gain=self.min_gain,
+                criterion=self.criterion,
                 # Give each tree its own RNG so they differ even with the same forest seed.
                 random_state=int(self._rng.integers(0, 2**31 - 1)),
             )

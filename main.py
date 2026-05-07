@@ -1,4 +1,5 @@
 import os
+import threading
 
 import pandas as pd
 
@@ -23,7 +24,7 @@ def make_summary():
         if not os.path.exists(path):
             continue
         df = pd.read_csv(path)
-        best = df.sort_values(["mean_f1", "mean_accuracy"], ascending=False).iloc[0].to_dict()
+        best = df.sort_values(["mean_f1", "mean_acc"], ascending=False).iloc[0].to_dict()
         best["dataset"] = dataset_name
         rows.append(best)
 
@@ -33,7 +34,7 @@ def make_summary():
 
     summary = pd.DataFrame(rows)
     summary.to_csv(os.path.join(output_root, "summary_best_configs.csv"), index=False)
-    summary[["dataset", "model", "mean_accuracy", "mean_f1"]].to_csv(
+    summary[["dataset", "model", "mean_acc", "mean_f1"]].to_csv(
         os.path.join(output_root, "summary_report_table.csv"),
         index=False,
     )
@@ -41,10 +42,16 @@ def make_summary():
 
 
 def run_all():
-    digits.run()
-    parkinsons.run()
-    rice.run()
-    credit.run()
+    threads = [
+        threading.Thread(target=digits.run, name="digits"),
+        threading.Thread(target=parkinsons.run, name="parkinsons"),
+        threading.Thread(target=rice.run, name="rice"),
+        threading.Thread(target=credit.run, name="credit"),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
     make_summary()
 
 
