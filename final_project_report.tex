@@ -1,0 +1,591 @@
+% COMPSCI 589 - Final Project Report (Spring 2026)
+% Compile from repository root: pdflatex final_project_report.tex
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+
+\newcommand{\best}[1]{\cellcolor{gray!35}#1}
+\newcommand{\filepath}[1]{\texttt{\detokenize{#1}}}
+
+\title{COMPSCI 589 --- Final Project Report\\Spring 2026}
+\author{%
+  Group members: \textcolor{red}{[Student A]}, \textcolor{red}{[Student B]}, \textcolor{red}{[Student C]}\\[0.5em]
+  \small\textit{Replace bracketed names before submission.}
+}
+\date{May 8, 2026}
+
+\begin{document}
+\maketitle
+
+% ---------------------------------------------------------------------------
+\section{Instructions compliance and code attribution}
+
+\subsection{Libraries}
+Our \textbf{learners} are our own implementations used through \filepath{util.py}: $k$-NN (\filepath{KNN/knn.py}), decision tree and random forest (\filepath{RandomForests/}), neural network (\filepath{NeuralNetworks/neural_network.py}). We use NumPy, Pandas, and Matplotlib for arrays, preprocessing tables, and plots. Sci-kit-learn is used only as specified in the handout for loading data (e.g.\ \filepath{sklearn.datasets.load_digits}) and we use OpenML (\filepath{fetch_openml}) only for the Extra Credit~\#2 Zoo dataset.
+
+\subsection{Which student authored each implementation (\textcolor{red}{required}; fill in)}
+\begin{itemize}
+  \item \textbf{k-NN:} \textcolor{red}{[Name]}
+  \item \textbf{Decision Tree / Random Forest:} \textcolor{red}{[Name]}
+  \item \textbf{Neural Network:} \textcolor{red}{[Name]}
+\end{itemize}
+
+\subsection{Metrics and validation (all datasets below)}
+\textbf{Accuracy} and \textbf{F1}: for multiclass problems we report macro-averaged F1; for binary problems binary F1 (positive label 1). All results use \textbf{stratified 10-fold cross-validation}. Best hyperparameter row in each subsection table is shown in \textbf{bold}.
+
+% ---------------------------------------------------------------------------
+\section{Experiments and analyses (assignment Section~2)}
+This section mirrors the project requirement: for \emph{each} required dataset we state (i) which three algorithms we run, (ii) what we swept, (iii) tabulated CV results ($\geq 6$ settings per algorithm family), (iv) chosen best configurations, (v) graphs and interpretation.
+
+\subsection{Dataset 1.1 --- Hand-written digits (8$\times$8, 10 classes)}
+
+\subsubsection{Algorithms used on this dataset (exactly three)}
+\textbf{$k$-nearest neighbors (k-NN), Random Forest, Neural Network.}
+We do \emph{not} run a standalone decision tree script on digits; trees appear inside the Random Forest.
+
+\subsubsection{Experimental setup}
+\textbf{Problem:} 1797 samples, 64 grayscale features; 10 classes. \\
+\textbf{k-NN:} Euclidean distance in feature space; features are \textbf{z-score} normalized per training fold. \\
+\textbf{Random Forest:} bagging + feature subsampling; two split criteria (\texttt{info\_gain}, \texttt{gini}). \\
+\textbf{Neural network:} one hidden-layer MLP-style network with softmax outputs; configuration grid over hidden widths, $\ell_2$ penalty $\lambda$, fixed SGD-style steps in \filepath{digits.py}.
+
+\subsubsection{Hyperparameter settings and cross-validation results}
+Table~\ref{tab:digits-knn}--\ref{tab:digits-nn} list every setting evaluated (each block has at least six rows). Values are mean $\pm$ would be in CSV; table shows mean test-fold accuracy and F1 only.
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \caption{Digits --- k-NN: neighbor count $k$ vs.\ performance.}
+  \label{tab:digits-knn}
+  \begin{tabular}{rcc}
+    \toprule
+    $k$ & Accuracy & Macro F1 \\
+    \midrule
+    1 & 0.973 & 0.973 \\
+    3 & 0.978 & 0.978 \\
+    \textbf{5} & \textbf{0.981} & \textbf{0.981} \\
+    7 & 0.976 & 0.976 \\
+    9 & 0.976 & 0.976 \\
+    11 & 0.975 & 0.975 \\
+    13 & 0.972 & 0.972 \\
+    15 & 0.969 & 0.969 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \caption{Digits --- Random Forest: number of trees and split criterion.}
+  \label{tab:digits-rf}
+  \begin{tabular}{r l cc}
+    \toprule
+    \texttt{ntree} & Criterion & Accuracy & Macro F1 \\
+    \midrule
+    10 & gini & 0.958 & 0.957 \\
+    30 & gini & 0.971 & 0.971 \\
+    50 & gini & 0.977 & 0.977 \\
+    75 & gini & 0.977 & 0.976 \\
+    100 & gini & 0.976 & 0.975 \\
+    150 & gini & 0.975 & 0.975 \\
+    \midrule
+    10 & info gain & 0.949 & 0.949 \\
+    30 & info gain & 0.973 & 0.973 \\
+    50 & info gain & 0.978 & 0.978 \\
+    \textbf{75} & \textbf{info gain} & \textbf{0.979} & \textbf{0.979} \\
+    100 & info gain & 0.977 & 0.976 \\
+    150 & info gain & 0.977 & 0.977 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \caption{Digits --- Neural network architectures (hidden layers) and $\lambda$ (same training budget per \filepath{digits.py}).}
+  \label{tab:digits-nn}
+  \begin{tabular}{l cc}
+    \toprule
+    Configuration $(\text{hidden},\lambda)$ & Accuracy & Macro F1 \\
+    \midrule
+    $[32], \lambda{=}0.0$ & 0.965 & 0.965 \\
+    $[32], \lambda{=}0.01$ & 0.966 & 0.966 \\
+    $[64], \lambda{=}0.01$ & 0.966 & 0.966 \\
+    \textbf{$[64], \lambda{=}0.1$} & \textbf{0.969} & \textbf{0.969} \\
+    $[64,32], \lambda{=}0.01$ & 0.964 & 0.964 \\
+    $[32,32], \lambda{=}0.1$ & 0.968 & 0.968 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Best configurations (Digits)}
+\textbf{k-NN:} $k=5$. \quad
+\textbf{Random Forest:} \texttt{ntree}$=75$, information gain splits. \quad
+\textbf{Neural network:} one hidden layer of 64 units with $\lambda=0.1$.
+
+\subsubsection{Graphs and discussion}
+Figures~\ref{fig:digits-knn-plot}--\ref{fig:digits-nn-plot} show, in order, accuracy vs.\ $k$ for k-NN, Random Forest accuracy vs.\ ensemble size by criterion, and the neural-network \textbf{test cost $J$} vs.\ training set size for the best NN config (course-style learning curve). k-NN and RF both fit this dataset very well; the best k-NN narrowly wins on our grid. The forest plateaus once enough trees reduce variance; further trees give diminishing returns. The NN curve shows how held-out cost moves as more training instances are revealed---if $J$ flattens early, optimization or capacity may be limiting relative to k-NN/RF baselines here.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/digits/knn_accuracy.png}
+  \caption{Digits: k-NN accuracy vs.\ $k$.}
+  \label{fig:digits-knn-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/digits/rf_accuracy.png}
+  \caption{Digits: Random Forest accuracy vs.\ \texttt{ntree}.}
+  \label{fig:digits-rf-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/digits/nn_learning_curve.png}
+  \caption{Digits: Neural-network learning curve ($J$ vs.\ train size).}
+  \label{fig:digits-nn-plot}
+\end{figure}
+
+% ---------------------------------------------------------------------------
+\FloatBarrier
+\subsection{Dataset 1.2 --- Oxford Parkinson's detection (binary)}
+
+\subsubsection{Algorithms used on this dataset (exactly three)}
+\textbf{k-NN, Random Forest, Neural Network.}
+
+\subsubsection{Experimental setup}
+195 samples and 22 numeric voice features; binary diagnosis. Same CV and normalization choices as digits for k-NN; forest and NN settings follow \filepath{parkinsons.py}.
+
+\subsubsection{Hyperparameter settings and cross-validation results}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Parkinson's --- k-NN.}
+  \label{tab:park-knn}
+  \begin{tabular}{rcc}
+    \toprule
+    $k$ & Accuracy & F1 \\
+    \midrule
+    \textbf{1} & \textbf{0.949} & \textbf{0.965} \\
+    3 & 0.918 & 0.945 \\
+    5 & 0.914 & 0.942 \\
+    7 & 0.918 & 0.947 \\
+    9 & 0.903 & 0.938 \\
+    11 & 0.887 & 0.930 \\
+    15 & 0.856 & 0.911 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Parkinson's --- Random Forest.}
+  \label{tab:park-rf}
+  \begin{tabular}{r l cc}
+    \toprule
+    \texttt{ntree} & Criterion & Accuracy & F1 \\
+    \midrule
+    10 & gini & 0.918 & 0.946 \\
+    30 & gini & 0.913 & 0.944 \\
+    50 & gini & 0.929 & 0.954 \\
+    75 & gini & 0.924 & 0.951 \\
+    100 & gini & 0.924 & 0.951 \\
+    150 & gini & 0.918 & 0.948 \\
+    \midrule
+    10 & info gain & 0.918 & 0.946 \\
+    30 & info gain & 0.923 & 0.950 \\
+    50 & info gain & 0.923 & 0.950 \\
+    \textbf{75} & \textbf{info gain} & \textbf{0.929} & \textbf{0.955} \\
+    100 & info gain & 0.929 & 0.955 \\
+    150 & info gain & 0.918 & 0.948 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Parkinson's --- Neural network grid (\filepath{parkinsons.py}).}
+  \label{tab:park-nn}
+  \begin{tabular}{l cc}
+    \toprule
+    Configuration & Accuracy & F1 \\
+    \midrule
+    $[8], \lambda{=}0.0$ & 0.847 & 0.901 \\
+    $[8], \lambda{=}0.01$ & 0.847 & 0.901 \\
+    \textbf{$[16], \lambda{=}0.0$} & \textbf{0.862} & \textbf{0.911} \\
+    $[16], \lambda{=}0.01$ & 0.862 & 0.911 \\
+    $[8,8], \lambda{=}0.01$ & 0.841 & 0.898 \\
+    $[16,8], \lambda{=}0.1$ & 0.836 & 0.892 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Best configurations (Parkinson's)}
+\textbf{k-NN:} $k=1$. \quad
+\textbf{Random Forest:} \texttt{ntree}$=75$, information gain (near-tied with 100 trees on this grid). \quad
+\textbf{Neural network:} 16-unit hidden layer, $\lambda=0.0$ (tied with $\lambda=0.01$).
+
+\subsubsection{Graphs and discussion}
+Figures~\ref{fig:park-knn-plot}--\ref{fig:park-nn-plot}: small-sample binary classification amplifies variance; k-NN with $k{=}1$ is strongest here, consistent with sharply structured class manifolds in feature space where local voting helps. RF tracks closely behind. Shallower NN configurations underperform k-NN/RF given limited data and epoch budget---the NN learning curve shows whether test cost decreases meaningfully as more folds' worth of data are added during the curve protocol.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/parkinsons/knn_accuracy.png}
+  \caption{Parkinson's: k-NN accuracy vs.\ $k$.}
+  \label{fig:park-knn-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/parkinsons/rf_accuracy.png}
+  \caption{Parkinson's: Random Forest accuracy vs.\ \texttt{ntree}.}
+  \label{fig:park-rf-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/parkinsons/nn_learning_curve.png}
+  \caption{Parkinson's: Neural-network learning curve (best config).}
+  \label{fig:park-nn-plot}
+\end{figure}
+
+% ---------------------------------------------------------------------------
+\FloatBarrier
+\subsection{Dataset 1.3 --- Rice grains (binary)}
+
+\subsubsection{Algorithms used on this dataset (exactly three)}
+\textbf{k-NN, Random Forest, Neural Network.}
+
+\subsubsection{Experimental setup}
+3810 grains, 7 numeric morphology features; binary species classification (see \filepath{rice.py}). Same stratified CV and metric definitions.
+
+\subsubsection{Hyperparameter settings and cross-validation results}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Rice --- k-NN.}
+  \label{tab:rice-knn}
+  \begin{tabular}{rcc}
+    \toprule
+    $k$ & Accuracy & F1 \\
+    \midrule
+    1 & 0.888 & 0.901 \\
+    3 & 0.908 & 0.919 \\
+    5 & 0.917 & 0.928 \\
+    7 & 0.923 & 0.933 \\
+    9 & 0.924 & 0.934 \\
+    11 & 0.924 & 0.933 \\
+    \textbf{15} & \textbf{0.925} & \textbf{0.935} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Rice --- Random Forest.}
+  \label{tab:rice-rf}
+  \begin{tabular}{r l cc}
+    \toprule
+    \texttt{ntree} & Criterion & Accuracy & F1 \\
+    \midrule
+    10 & gini & 0.911 & 0.922 \\
+    30 & gini & 0.921 & 0.931 \\
+    \textbf{50} & \textbf{gini} & \textbf{0.924} & \textbf{0.934} \\
+    75 & gini & 0.922 & 0.932 \\
+    100 & gini & 0.923 & 0.933 \\
+    150 & gini & 0.923 & 0.933 \\
+    \midrule
+    10 & info gain & 0.915 & 0.925 \\
+    30 & info gain & 0.921 & 0.931 \\
+    50 & info gain & 0.921 & 0.931 \\
+    75 & info gain & 0.921 & 0.931 \\
+    100 & info gain & 0.921 & 0.931 \\
+    150 & info gain & 0.923 & 0.933 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Rice --- Neural network grid.}
+  \label{tab:rice-nn}
+  \begin{tabular}{l cc}
+    \toprule
+    Configuration & Accuracy & F1 \\
+    \midrule
+    $[8], \lambda{=}0.0$ & 0.928 & 0.937 \\
+    $[8], \lambda{=}0.01$ & 0.928 & 0.938 \\
+    $[16], \lambda{=}0.01$ & 0.929 & 0.938 \\
+    $[16], \lambda{=}0.1$ & 0.928 & 0.937 \\
+    \textbf{$[16,8], \lambda{=}0.01$} & \textbf{0.930} & \textbf{0.939} \\
+    $[8,8], \lambda{=}0.1$ & 0.928 & 0.937 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Best configurations (Rice)}
+\textbf{k-NN:} $k=15$. \quad
+\textbf{Random Forest:} 50 trees, Gini. \quad
+\textbf{Neural network:} layers $[16,8]$, $\lambda=0.01$.
+
+\subsubsection{Graphs and discussion}
+Figures~\ref{fig:rice-knn-plot}--\ref{fig:rice-nn-plot}: with $\sim 4\text{k}$ numeric points, RF and NN both perform strongly; NN wins narrowly on our grid. RF accuracy vs.\ \texttt{ntree} is relatively stable past moderate ensemble sizes, implying most gain comes from averaging rather than infinitely many trees.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/rice/knn_accuracy.png}
+  \caption{Rice: k-NN accuracy vs.\ $k$.}
+  \label{fig:rice-knn-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/rice/rf_accuracy.png}
+  \caption{Rice: Random Forest accuracy vs.\ \texttt{ntree}.}
+  \label{fig:rice-rf-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/rice/nn_learning_curve.png}
+  \caption{Rice: Neural-network learning curve (best config).}
+  \label{fig:rice-nn-plot}
+\end{figure}
+
+% ---------------------------------------------------------------------------
+\FloatBarrier
+\subsection{Dataset 1.4 --- Credit approval (binary, mixed types)}
+
+\subsubsection{Algorithms used on this dataset (exactly three)}
+\textbf{Decision Tree, Random Forest, k-NN.}
+Categorical inputs are converted with \textbf{one-hot encoding} (see \filepath{util.py}, \filepath{credit.py}) before k-NN and neural-style vector inputs; the tree code consumes the same engineered table.
+
+\subsubsection{Experimental setup}
+653 applications---6 numeric and 9 categorical columns in the CSV prior to expansion. Trees use depth/criterion grids; forests sweep \texttt{ntree}; k-NN varies $k$ with z-score normalization.
+
+\subsubsection{Hyperparameter settings and cross-validation results}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Credit --- Decision Tree ($-1$: unlimited depth, matching plot/CSV labels). Bold: best setting on mean F1 (then accuracy).}
+  \label{tab:credit-dt}
+  \begin{tabular}{r l cc}
+    \toprule
+    Depth & Criterion & Accuracy & F1 \\
+    \midrule
+    $-1$ & gini & 0.804 & 0.783 \\
+    3 & gini & 0.860 & 0.860 \\
+    5 & gini & 0.857 & 0.849 \\
+    7 & gini & 0.851 & 0.832 \\
+    10 & gini & 0.827 & 0.805 \\
+    15 & gini & 0.807 & 0.786 \\
+    $-1$ & info gain & 0.804 & 0.780 \\
+    \textbf{3} & \textbf{info gain} & \textbf{0.863} & \textbf{0.863} \\
+    5 & info gain & 0.853 & 0.844 \\
+    7 & info gain & 0.844 & 0.824 \\
+    10 & info gain & 0.828 & 0.803 \\
+    15 & info gain & 0.810 & 0.785 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Credit --- Random Forest (all 12 settings).}
+  \label{tab:credit-rf}
+  \begin{tabular}{r l cc}
+    \toprule
+    \texttt{ntree} & Criterion & Accuracy & F1 \\
+    \midrule
+    10 & gini & 0.862 & 0.843 \\
+    30 & gini & 0.866 & 0.852 \\
+    50 & gini & 0.862 & 0.846 \\
+    75 & gini & 0.860 & 0.845 \\
+    100 & gini & 0.865 & 0.851 \\
+    150 & gini & 0.870 & 0.856 \\
+    10 & info gain & 0.856 & 0.834 \\
+    30 & info gain & 0.863 & 0.848 \\
+    50 & info gain & 0.873 & 0.858 \\
+    75 & info gain & 0.870 & 0.856 \\
+    \textbf{100} & \textbf{info gain} & \textbf{0.874} & \textbf{0.861} \\
+    150 & info gain & 0.868 & 0.856 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \caption{Credit --- k-NN on one-hot expanded features.}
+  \label{tab:credit-knn}
+  \begin{tabular}{rcc}
+    \toprule
+    $k$ & Accuracy & F1 \\
+    \midrule
+    1 & 0.779 & 0.750 \\
+    \textbf{3} & \textbf{0.813} & \textbf{0.782} \\
+    5 & 0.801 & 0.766 \\
+    7 & 0.804 & 0.764 \\
+    9 & 0.808 & 0.764 \\
+    11 & 0.805 & 0.757 \\
+    15 & 0.793 & 0.736 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Best configurations (Credit)}
+\textbf{Decision Tree:} max depth 3, information gain. \quad
+\textbf{Random Forest:} 100 trees, information gain. \quad
+\textbf{k-NN:} $k=3$.
+
+\subsubsection{Graphs and discussion}
+Figures~\ref{fig:credit-dt-plot}--\ref{fig:credit-knn-plot} show the three algorithm panels. High-dimensional sparse one-hot features hurt k-NN relative to tree ensembles: distance in thousands of dimensions is dominated by noise unless $k$ is tuned. Random Forest achieves the best accuracy in our summary; the shallow DT is competitive on F1. \textbf{Additional figures:} \filepath{outputs/credit\_approval/dt\_test\_accuracy\_hist.png} and \filepath{outputs/credit\_approval/dt\_train\_accuracy\_hist.png} show train vs.\ test fold accuracy spreads for the best tree (homework-style overfitting diagnostic).
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/credit_approval/dt_accuracy.png}
+  \caption{Credit approval: Decision Tree accuracy vs.\ depth.}
+  \label{fig:credit-dt-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/credit_approval/rf_accuracy.png}
+  \caption{Credit approval: Random Forest accuracy vs.\ \texttt{ntree}.}
+  \label{fig:credit-rf-plot}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/credit_approval/knn_accuracy.png}
+  \caption{Credit approval: k-NN accuracy vs.\ $k$.}
+  \label{fig:credit-knn-plot}
+\end{figure}
+
+\FloatBarrier
+\subsection*{Cross-dataset graph interpretation (explicit requirement coverage)}
+Across the four required datasets we include at least 8 graphs; in fact, we include 12 primary model-selection/learning-curve graphs (3 per dataset) plus additional decision-tree train/test histograms for Credit. The key patterns from these graphs are:
+\begin{itemize}
+  \item \textbf{Convergence / poor local optima (NN):} In some NN learning-curve plots (especially Parkinson's), test cost $J$ decreases slowly and remains above tree/k-NN baselines, suggesting that with small sample size and the chosen training budget, optimization can settle in a suboptimal region or underfit before reaching a better basin.
+  \item \textbf{Why numeric-only datasets favor some methods:} On Digits and Rice (purely numeric attributes), distance-based structure is more reliable after z-score normalization, so k-NN and NN are strong; k-NN performs particularly well on Digits because local neighborhoods in pixel space are informative.
+  \item \textbf{Mixed/sparse one-hot effects:} On Credit, one-hot expansion creates high-dimensional sparse inputs; k-NN curves are weaker because distance concentration and irrelevant dimensions reduce neighborhood quality, while tree-based methods remain robust by selecting informative splits.
+  \item \textbf{Forest-size saturation:} RF accuracy/F1 curves improve rapidly at low-to-moderate \texttt{ntree} and then plateau, consistent with diminishing variance-reduction returns as more trees are added.
+  \item \textbf{Bias--variance trend in k-NN curves:} Smaller $k$ often gives high-variance but low-bias boundaries (strong on Parkinson's at $k=1$), while larger $k$ smooths decision boundaries and can reduce overfitting at the cost of bias.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\FloatBarrier
+\section{Summary table (assignment Table~1 style)}
+Table~\ref{tab:main} aggregates \textbf{best} mean CV accuracy and F1 for the three algorithms that were actually run on each dataset. Gray cells mark the column-wise winner.
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{l *{8}{c}}
+    \toprule
+    & \multicolumn{2}{c}{Digits} & \multicolumn{2}{c}{Parkinson's} & \multicolumn{2}{c}{Rice} & \multicolumn{2}{c}{Credit} \\
+    \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+    Algorithm (per dataset) & Acc & F1 & Acc & F1 & Acc & F1 & Acc & F1 \\
+    \midrule
+    k-NN
+      & \best{0.981} & \best{0.981}
+      & \best{0.949} & \best{0.965}
+      & 0.925 & 0.935
+      & 0.813 & 0.782 \\
+    Random Forest
+      & 0.979 & 0.979
+      & 0.929 & 0.955
+      & 0.924 & 0.934
+      & \best{0.874} & 0.861 \\
+    Neural Network
+      & 0.969 & 0.969
+      & 0.862 & 0.911
+      & \best{0.930} & \best{0.939}
+      & --- & --- \\
+    Decision Tree
+      & --- & ---
+      & --- & ---
+      & --- & ---
+      & 0.863 & \best{0.863} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Best CV performance per dataset. Dashes: algorithm not part of that dataset's three-way comparison. Credit has DT+RF+k-NN; Digits/Parkinson's/Rice have k-NN+RF+NN (Extra Credit~\#1 uses $>2$ algorithms on every required dataset).}
+  \label{tab:main}
+\end{table}
+
+% ---------------------------------------------------------------------------
+\section{Extra credit (mark clearly in \textcolor{red}{red})}
+
+{\color{red}\textbf{[Extra Credit Question \#1]}}
+For each of the four required datasets we evaluate \textbf{three} algorithms (more than the minimum two): k-NN + Random Forest + Neural Network on Digits, Parkinson's, and Rice; Decision Tree + Random Forest + k-NN on Credit. Each family has at least six hyperparameter configurations (see tables above and CSVs under \filepath{outputs/}).
+
+{\color{red}\textbf{[Extra Credit Question \#2]}}
+We add the OpenML \textbf{Zoo} dataset (multiclass; mixed attribute types after encoding) using \filepath{extra\_credit2.py}. \textbf{Algorithms (four):} k-NN, Decision Tree, Random Forest, Neural Network.
+
+\subsubsection{Zoo --- experiment and analysis}
+\textbf{Challenge:} 7 classes, $\sim$101 animals, mix of binary/categorical/numeric attributes; high CV variance. \\
+\textbf{Protocol:} same stratified 10-fold metrics; macro F1 for multiclass. \\
+\textbf{Tables:} full sweep in \filepath{outputs/extra\_credit2\_zoo/extra\_credit2\_zoo\_cv\_results.csv}. Best mean rows: NN Acc 0.973 / F1 0.947; RF 0.972 / 0.940; k-NN 0.965 / 0.923; DT 0.957 / 0.906. \\
+\textbf{Figures:} \filepath{knn\_accuracy.png}, \filepath{dt\_accuracy.png}, \filepath{rf\_accuracy.png}, \filepath{nn\_learning\_curve.png} in \filepath{outputs/extra\_credit2\_zoo/}.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/extra_credit2_zoo/knn_accuracy.png}
+  \caption{Extra Credit \#2 (Zoo): k-NN accuracy panel.}
+  \label{fig:zoo-knn}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/extra_credit2_zoo/dt_accuracy.png}
+  \caption{Extra Credit \#2 (Zoo): Decision Tree accuracy panel.}
+  \label{fig:zoo-dt}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/extra_credit2_zoo/rf_accuracy.png}
+  \caption{Extra Credit \#2 (Zoo): Random Forest accuracy panel.}
+  \label{fig:zoo-rf}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\textwidth]{outputs/extra_credit2_zoo/nn_learning_curve.png}
+  \caption{Extra Credit \#2 (Zoo): NN learning curve ($J$).}
+  \label{fig:zoo-nn}
+\end{figure}
+
+% ---------------------------------------------------------------------------
+\section*{Reproducing results}
+\begin{verbatim}
+python3 digits.py && python3 parkinsons.py && python3 rice.py && python3 credit.py
+python3 main.py                         # parallel run + summaries
+python3 extra_credit2.py                 # Zoo (requires network first fetch)
+\end{verbatim}
+Raw tables: \filepath{outputs/digits/digits\_cv\_results.csv}, \filepath{outputs/parkinsons/parkinsons\_cv\_results.csv}, \filepath{outputs/rice/rice\_cv\_results.csv}, \filepath{outputs/credit\_approval/credit\_approval\_cv\_results.csv}.
+
+\end{document}
