@@ -1,3 +1,5 @@
+# Shared utilities: data loading, stratified CV, metrics, plotting.
+# Learners live in KNN/, RandomForests/, NeuralNetworks/. sklearn.datasets only for bundled/OpenML data.
 import os
 import sys
 
@@ -21,7 +23,26 @@ from random_forest import RandomForestClassifier  # type: ignore
 from neural_network import NeuralNetwork  # type: ignore
 
 
+def print_cv_result(
+    dataset_tag: str,
+    algorithm: str,
+    setting: str,
+    stats: dict,
+    *,
+    multiclass: bool = False,
+) -> None:
+    # Echo one 10-fold CV run: mean accuracy/F1 with standard deviations.
+    f1_label = "macro F1" if multiclass else "F1"
+    print(
+        f"[{dataset_tag}] {algorithm} | {setting} | "
+        f"acc={stats['mean_acc']:.4f}±{stats['std_acc']:.4f}, "
+        f"{f1_label}={stats['mean_f1']:.4f}±{stats['std_f1']:.4f}",
+        flush=True,
+    )
+
+
 def make_folds(y, k=10, seed=589):
+    # Stratified folds: shuffle within each class, round-robin into k lists.
     y = np.asarray(y)
     rng = np.random.default_rng(seed)
     folds = [[] for _ in range(k)]
@@ -34,6 +55,7 @@ def make_folds(y, k=10, seed=589):
 
 
 def zscore_by_train(X_train, X_test):
+    # Fit mean/std on the training fold only, then transform train and test (per-fold normalization).
     mean = X_train.mean(axis=0)
     std = X_train.std(axis=0).replace(0, 1.0)
     return (X_train - mean) / std, (X_test - mean) / std
@@ -46,6 +68,7 @@ def accuracy(y_true, y_pred):
 
 
 def f1_binary(y_true, y_pred, positive_label=1):
+    # Binary F1; positive class defaults to label 1.
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
     tp = np.sum((y_true == positive_label) & (y_pred == positive_label))
@@ -59,6 +82,7 @@ def f1_binary(y_true, y_pred, positive_label=1):
 
 
 def f1_macro(y_true, y_pred):
+    # Macro F1: average of one-vs-rest binary F1 per class.
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
     labels = np.unique(y_true)
@@ -71,6 +95,7 @@ def f1_macro(y_true, y_pred):
 
 
 def fit_predict(model_name, params, X_train, y_train, X_test):
+    # Train (or store training rows for k-NN), return predictions on X_test.
     if model_name == "knn":
         model = kNN()
         model.features_train = X_train.reset_index(drop=True)
@@ -139,7 +164,7 @@ def fit_predict(model_name, params, X_train, y_train, X_test):
 
 
 def cv_score(X, y, model_name, params, normalize=False, multiclass=False, positive_label=1, k=10):
-    """Run stratified k-fold CV for one hyperparameter setting."""
+    # Stratified k-fold CV: mean/std accuracy and F1 across folds (default k=10).
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
     folds = make_folds(y, k=k, seed=589)
@@ -174,7 +199,7 @@ def cv_score(X, y, model_name, params, normalize=False, multiclass=False, positi
 
 
 def plot_metric_vs_param(df, x_col, title, out_dir, prefix, x_label=None, log_x=False):
-    """Save Accuracy and F1 (with std error bars) as two separate PNGs."""
+    # Hyperparameter vs accuracy/F1; error bars = fold std. Writes two PNGs.
     os.makedirs(out_dir, exist_ok=True)
     x_values = df[x_col].tolist()
     x_label = x_label or x_col
@@ -205,8 +230,7 @@ def plot_metric_vs_param(df, x_col, title, out_dir, prefix, x_label=None, log_x=
 
 
 def plot_metric_vs_param_grouped(df, x_col, group_col, title, out_dir, prefix, x_label=None):
-    """Same as plot_metric_vs_param but with one curve per group (e.g. criterion).
-    Saves Accuracy and F1 as two separate PNGs."""
+    # Same as plot_metric_vs_param but one curve per group_col (e.g. split criterion).
     os.makedirs(out_dir, exist_ok=True)
     x_label = x_label or x_col
 
@@ -243,18 +267,38 @@ def plot_metric_vs_param_grouped(df, x_col, group_col, title, out_dir, prefix, x
     plt.close(fig)
 
 
-def cv_fold_accuracies(X, y, model_name, params, n_runs=10, k=10,
-                       normalize=False, base_seed=589):
-    """Repeat stratified k-fold CV `n_runs` times with different fold seeds
-    and return (train_accs, test_accs) - one entry per fold per run.
-    With the defaults this gives 10 * 10 = 100 fold accuracies, which is
-    enough to draw the HW1-style accuracy histogram while still using CV."""
+def cv_fold_accuracies(
+    X,
+    y,
+    model_name,
+    params,
+    n_runs=10,
+    k=10,
+    normalize=False,
+    base_seed=589,
+    *,
+    progress_tag=None,
+    progress_every=25,
+):
+    # Repeat stratified k-fold with different fold seeds; returns flat lists of train/test
+    # fold accuracies (default 10 runs × 10 folds = 100 values) for histogram-style plots.
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
 
+    total_fits = n_runs * k
+    if progress_tag:
+        print(
+            f"[{progress_tag}] Repeated CV (train+test acc per fold): "
+            f"{n_runs} runs × {k} folds = {total_fits} fits ({model_name})...",
+            flush=True,
+        )
+
     train_accs = []
     test_accs = []
+    done = 0
     for run_idx in range(n_runs):
+        if progress_tag:
+            print(f"[{progress_tag}] Histogram CV: starting run {run_idx + 1}/{n_runs} (seed offset +{run_idx})", flush=True)
         folds = make_folds(y, k=k, seed=base_seed + run_idx)
         for i in range(k):
             test_idx = folds[i]
@@ -275,12 +319,18 @@ def cv_fold_accuracies(X, y, model_name, params, n_runs=10, k=10,
 
             train_accs.append(accuracy(y_tr.to_numpy(), y_pred_tr))
             test_accs.append(accuracy(y_te.to_numpy(), y_pred_te))
+            done += 1
+            if progress_tag and (done % progress_every == 0 or done == total_fits):
+                print(f"[{progress_tag}] Histogram CV progress: {done}/{total_fits} fits done", flush=True)
+
+    if progress_tag:
+        print(f"[{progress_tag}] Repeated CV complete ({total_fits} fits).", flush=True)
 
     return train_accs, test_accs
 
 
 def plot_accuracy_histogram(accuracies, title, output_path, bins=20):
-    """Histogram of test accuracies (HW3 decision-tree style)."""
+    # Histogram of per-fold test accuracies (e.g. best decision tree diagnostic).
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.hist(accuracies, bins=bins)
@@ -293,10 +343,17 @@ def plot_accuracy_histogram(accuracies, title, output_path, bins=20):
     plt.close(fig)
 
 
-def nn_learning_curve(X, y, params, multiclass=False, normalize=True,
-                      sizes=None, seed=589):
-    """Train the NN with the given config on increasing training sizes,
-    record the cost J on a held-out test split. Mirrors the HW4 plot."""
+def nn_learning_curve(
+    X,
+    y,
+    params,
+    multiclass=False,
+    normalize=True,
+    sizes=None,
+    seed=589,
+    progress_tag=None,
+):
+    # NN trained on increasing pool sizes; plots test cost J on one fixed held-out fold.
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
 
@@ -358,11 +415,17 @@ def nn_learning_curve(X, y, params, multiclass=False, normalize=True,
         # curve reflects how well the model fits the unseen data.
         j_test = nn.cost(x_test_np, y_test_oh, lam=0.0, include_reg=False)
         rows.append({"n_train": n_train, "J_test": j_test})
+        if progress_tag:
+            print(
+                f"[{progress_tag}] Neural network learning curve | n_train={n_train} | J_test={j_test:.6f}",
+                flush=True,
+            )
 
     return pd.DataFrame(rows)
 
 
 def plot_learning_curve(df, title, output_path):
+    # Line plot: test J vs training set size (from nn_learning_curve dataframe).
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.plot(df["n_train"], df["J_test"], marker="o")
@@ -376,6 +439,7 @@ def plot_learning_curve(df, title, output_path):
 
 
 def load_digits_data():
+    # sklearn load_digits: 8×8 bitmaps, 1797 samples, labels 0–9.
     data = load_digits()
     X = pd.DataFrame(data.data, columns=[f"pixel_{i}" for i in range(data.data.shape[1])])
     y = pd.Series(data.target.astype(int))
@@ -383,6 +447,7 @@ def load_digits_data():
 
 
 def load_parkinsons_data(path):
+    # Voice features; last column = binary diagnosis.
     df = pd.read_csv(path)
     X = df.iloc[:, :-1].copy()
     y = pd.to_numeric(df.iloc[:, -1], errors="coerce").fillna(0).astype(int)
@@ -390,6 +455,7 @@ def load_parkinsons_data(path):
 
 
 def load_rice_data(path):
+    # Numeric morphology features; last column = species name → mapped to 0/1.
     df = pd.read_csv(path)
     X = df.iloc[:, :-1].copy()
     y_text = df.iloc[:, -1].astype(str)
@@ -400,6 +466,7 @@ def load_rice_data(path):
 
 
 def load_credit_data(path):
+    # Mixed types; columns ending in _cat one-hot encoded for vector models.
     df = pd.read_csv(path)
     X = df.iloc[:, :-1].copy()
     cat_cols = [c for c in X.columns if c.endswith("_cat")]
@@ -413,7 +480,7 @@ def load_credit_data(path):
 
 
 def load_zoo_data():
-    """Load the Zoo dataset (mixed attributes, 7 classes)."""
+    # OpenML zoo: mixed attributes, multiclass (7 types).
     data = fetch_openml(name="zoo", version=1, as_frame=True)
     df = data.frame.copy()
 

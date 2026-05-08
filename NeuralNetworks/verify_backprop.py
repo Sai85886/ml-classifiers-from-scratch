@@ -1,8 +1,4 @@
-"""
-Demonstrate backprop correctness against backprop_example1.txt and backprop_example2.txt.
-Run: python3 verify_backprop.py
-"""
-
+# Compare backprop to backprop_example1.txt / backprop_example2.txt. Run: python3 verify_backprop.py
 from __future__ import annotations
 
 import os
@@ -30,7 +26,7 @@ def run_reference_demo(
     ys: list[np.ndarray],
     title: str,
 ) -> None:
-    """Print forward + backward trace matching homework reference style."""
+    # Pretty-print forward/backward trace in homework reference format.
     print(title)
     print(f"Regularization parameter lambda={lam:.3f}")
     print()
@@ -190,7 +186,7 @@ def verify_from_files(base_dir: str | None = None) -> None:
 
 
 def verify_correctness() -> None:
-    """Entry point for graders: reproduces reference traces."""
+    # Load example files next to this script and print reference-matching traces.
     verify_from_files()
 
 

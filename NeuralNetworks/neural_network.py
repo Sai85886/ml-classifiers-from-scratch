@@ -1,9 +1,4 @@
-"""
-Feedforward neural network with sigmoid activations and L2 regularization.
-Vectorized forward/backprop for mini-batch or full-batch training.
-Binary / multi-label outputs use independent sigmoids + sum of per-output logistic losses.
-"""
-
+# Feedforward NN: sigmoid, L2. Vectorized forward/backprop. Binary/multiclass = sigmoid outputs + logistic loss.
 from __future__ import annotations
 
 import numpy as np
@@ -15,16 +10,12 @@ def sigmoid(z: np.ndarray) -> np.ndarray:
 
 
 def sigmoid_grad_from_a(a: np.ndarray) -> np.ndarray:
-    """Derivative of sigmoid given activation a = sigmoid(z)."""
+    # dσ/dz given a = σ(z).
     return a * (1.0 - a)
 
 
 class NeuralNetwork:
-    """
-    layer_sizes: [n0, n1, ..., nL] counts WITHOUT bias (input, hiddens..., output).
-    Theta[i] has shape (n_{i+1}, n_i + 1); row r = weights into neuron r of layer i+1
-    (column 0 is bias).
-    """
+    # layer_sizes: [n0..nL] without bias. Theta[i] shape (n_{i+1}, n_i+1); col 0 = bias.
 
     def __init__(self, layer_sizes: list[int], rng: np.random.Generator | None = None):
         if len(layer_sizes) < 2:
@@ -51,14 +42,7 @@ class NeuralNetwork:
     def forward(
         self, x: np.ndarray
     ) -> tuple[list[np.ndarray], list[np.ndarray]]:
-        """
-        x: (n0, m) batch of raw inputs (no bias).
-        Returns (a_list, z_list) where a_list[l] is activation after layer l
-        (a_list[0] = row of ones stacked on x, shape (n0+1, m)).
-        For l >= 1 and l < L: a_list[l] includes leading ones for hidden layers.
-        a_list[L] = output activations (nL, m), NO leading row of ones.
-        z_list[l] = linear input to layer l+1 before activation, shape (n_{l+1}, m).
-        """
+        # x: (n0, m). Returns activations a_list and pre-activations z_list (see HW4 notation).
         m = x.shape[1]
         a = np.vstack([np.ones((1, m), dtype=np.float64), x])
         a_list = [a]
@@ -84,7 +68,7 @@ class NeuralNetwork:
         *,
         include_reg: bool = True,
     ) -> float:
-        """Mean logistic loss + optional L2 (excluding bias columns)."""
+        # Mean logistic loss over examples; add (lam/2m)*||theta_no_bias||^2 if include_reg.
         a_list, _ = self.forward(x)
         h = a_list[-1]
         m = x.shape[1]
@@ -107,10 +91,7 @@ class NeuralNetwork:
         y: np.ndarray,
         lam: float,
     ) -> list[np.ndarray]:
-        """
-        Returns list of gradients dJ/dTheta for each layer (same shape as Theta),
-        averaged over batch with L2 on non-bias weights (lambda/m * theta).
-        """
+        # Gradients dJ/dTheta per layer, batch mean, with L2 on non-bias weights.
         m = x.shape[1]
         a_list, z_list = self.forward(x)
         L = len(self.thetas)
@@ -160,10 +141,7 @@ class NeuralNetwork:
         tol: float | None = None,
         verbose: bool = False,
     ) -> list[float]:
-        """
-        Full-batch or mini-batch gradient descent. Returns history of mean training cost per epoch.
-        If tol is set, stop early when relative improvement in J between epochs < tol (optional).
-        """
+        # Mini-batch or full-batch GD; returns per-epoch mean training J (with regularizer).
         m = x.shape[1]
         bs = batch_size if batch_size is not None else m
         hist: list[float] = []
@@ -188,13 +166,13 @@ class NeuralNetwork:
         return a_list[-1]
 
     def predict_labels(self, x: np.ndarray, threshold: float = 0.5) -> np.ndarray:
-        """For single-output binary classification."""
+        # Binary single-output: threshold probabilities to 0/1.
         p = self.predict_proba(x)
         return (p >= threshold).astype(np.int32)
 
 
 def compute_metrics_binary(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, float]:
-    """y_true, y_pred flat 0/1 arrays."""
+    # y_true, y_pred: flat 0/1.
     y_true = y_true.astype(np.int32).ravel()
     y_pred = y_pred.astype(np.int32).ravel()
     tp = int(np.sum((y_true == 1) & (y_pred == 1)))

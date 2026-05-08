@@ -1,3 +1,5 @@
+# Run digits, parkinsons, rice, credit in parallel; write summary CSVs.
+# Stdout from threads may interleave; run a single *.py for clean logs.
 import os
 import threading
 
@@ -22,14 +24,20 @@ def make_summary():
     rows = []
     for dataset_name, path in result_files:
         if not os.path.exists(path):
+            print(f"[main] Summary: skip {dataset_name} (missing {path})", flush=True)
             continue
         df = pd.read_csv(path)
         best = df.sort_values(["mean_f1", "mean_acc"], ascending=False).iloc[0].to_dict()
         best["dataset"] = dataset_name
         rows.append(best)
+        print(
+            f"[main] Summary: {dataset_name} best row → model={best.get('model')} "
+            f"acc={best.get('mean_acc'):.4f} F1={best.get('mean_f1'):.4f}",
+            flush=True,
+        )
 
     if not rows:
-        print("No results found for summary.")
+        print("[main] No results found for summary.", flush=True)
         return
 
     summary = pd.DataFrame(rows)
@@ -38,21 +46,32 @@ def make_summary():
         os.path.join(output_root, "summary_report_table.csv"),
         index=False,
     )
-    print("Saved summary files in outputs/")
+    print("[main] Wrote outputs/summary_best_configs.csv and summary_report_table.csv", flush=True)
+
+
+def _run_with_banner(module, name: str):
+    print(f"[main] Starting thread {name!r}...", flush=True)
+    try:
+        module.run()
+    finally:
+        print(f"[main] Finished thread {name!r}.", flush=True)
 
 
 def run_all():
+    print("[main] Launching digits, parkinsons, rice, credit in parallel...", flush=True)
     threads = [
-        threading.Thread(target=digits.run, name="digits"),
-        threading.Thread(target=parkinsons.run, name="parkinsons"),
-        threading.Thread(target=rice.run, name="rice"),
-        threading.Thread(target=credit.run, name="credit"),
+        threading.Thread(target=_run_with_banner, args=(digits, "digits"), name="digits"),
+        threading.Thread(target=_run_with_banner, args=(parkinsons, "parkinsons"), name="parkinsons"),
+        threading.Thread(target=_run_with_banner, args=(rice, "rice"), name="rice"),
+        threading.Thread(target=_run_with_banner, args=(credit, "credit"), name="credit"),
     ]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
+    print("\n[main] All dataset threads joined. Building summary...", flush=True)
     make_summary()
+    print("[main] All done.", flush=True)
 
 
 if __name__ == "__main__":

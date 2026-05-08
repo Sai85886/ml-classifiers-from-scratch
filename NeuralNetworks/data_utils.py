@@ -1,5 +1,4 @@
-"""Load and preprocess WDBC and Loan datasets (numpy only for transforms)."""
-
+# Load WDBC / Loan (etc.) CSVs; numpy-only feature transforms.
 from __future__ import annotations
 
 import csv
@@ -61,10 +60,7 @@ def load_loan(path: str) -> tuple[np.ndarray, np.ndarray]:
 
 
 def load_titanic(path: str) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Expected columns:
-    label,attr1_cat,attr2_cat,attr3_num,attr4_num,attr5_num,attr6_num
-    """
+    # Columns: label, *_cat, *_num (one-hot categoricals + numeric block).
     header, rows = _read_csv(path)
     label_idx = header.index("label")
     cat_cols = [i for i, h in enumerate(header) if h.endswith("_cat")]
@@ -100,7 +96,7 @@ def standardize(
 
 
 def stratified_kfold_indices(y: np.ndarray, k: int, rng: np.random.Generator) -> list[tuple[np.ndarray, np.ndarray]]:
-    """y shape (1, m) binary 0/1. Returns list of (train_idx, val_idx)."""
+    # y shape (1, m), binary. Returns (train_idx, val_idx) per fold.
     y_flat = y.astype(np.int32).ravel()
     idx_by_class: dict[int, list[int]] = defaultdict(list)
     for i, lab in enumerate(y_flat):

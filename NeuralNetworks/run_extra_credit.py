@@ -1,12 +1,4 @@
-"""
-Extra-credit experiments:
-- QE.1 Raisin dataset
-- QE.2 Titanic dataset
-
-Runs the same protocol used in run_experiments.py:
-stratified 5-fold CV across architecture/lambda grid + learning curves for best configs.
-"""
-
+# Extra credit: Raisin + Titanic; same protocol as run_experiments.py.
 from __future__ import annotations
 
 import json

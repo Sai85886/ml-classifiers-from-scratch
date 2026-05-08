@@ -1,14 +1,5 @@
-"""
-Stratified 5-fold CV experiments for HW4 (WDBC + Loan).
-Also generates learning curves for the best configuration per dataset.
-
-Run from this directory:
-  python3 run_experiments.py
-
-Stopping criterion: fixed number of training epochs (m) per assignment.
-Hyperparameters (edit TRAINING below if needed): alpha, max_epochs, mini-batch size.
-"""
-
+# HW4: stratified 5-fold CV on WDBC + Loan; learning curves for best configs.
+# Run: python3 run_experiments.py from this directory.
 from __future__ import annotations
 
 import csv
@@ -171,7 +162,7 @@ def learning_curve(
     best_lam: float,
     test_fraction: float = 0.2,
 ) -> None:
-    """Train on increasing subsets of a training split; plot J on held-out test."""
+    # Train on growing subsets of a train split; plot J on fixed hold-out test.
     rng = np.random.default_rng(TRAINING["random_seed"] + 7)
     m = X.shape[1]
     idx = np.arange(m)

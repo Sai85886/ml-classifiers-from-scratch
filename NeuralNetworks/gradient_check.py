@@ -1,10 +1,4 @@
-"""
-QE.3 Numerical gradient checking for backprop reference networks.
-
-Runs finite-difference gradient estimates for eps=0.1 and eps=1e-6
-on backprop_example1.txt and backprop_example2.txt.
-"""
-
+# QE.3: finite-difference vs analytic gradients (backprop_example*.txt).
 from __future__ import annotations
 
 import json
