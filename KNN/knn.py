@@ -72,6 +72,29 @@ class kNN:
 
         return majority_label
 
+    def predict_using_weighted_knn(self, test_instance, k, power=2, eps=1e-10):
+        """Distance-weighted k-NN: vote by sum of weights 1 / (d**power + eps), not plain majority.
+
+        Non-trivial variant of k-NN (Extra Credit #4 style): closer neighbors influence the prediction more.
+        """
+        distances = []
+        for i in range(len(self.features_train)):
+            d = float(np.sqrt(np.sum((test_instance - self.features_train.iloc[i]) ** 2)))
+            distances.append((i, d))
+        distances.sort(key=lambda x: x[1])
+        neighbors = distances[:k]
+
+        weights_by_label = {}
+        for idx, d in neighbors:
+            if d < eps:
+                w = 1.0 / eps
+            else:
+                w = 1.0 / (d**power + eps)
+            lab = self.labels_train.iloc[idx]
+            weights_by_label[lab] = weights_by_label.get(lab, 0.0) + w
+
+        return max(weights_by_label, key=weights_by_label.get)
+
     # Determine accuracy of kNN predictions on given features and labels for a given k value
     def determine_accuracy(self, features, labels, k):
         correct_predictions = 0

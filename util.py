@@ -105,6 +105,20 @@ def fit_predict(model_name, params, X_train, y_train, X_test):
             preds.append(model.predict_using_knn(X_test.iloc[i], params["k"]))
         return np.asarray(preds)
 
+    if model_name == "weighted_knn":
+        model = kNN()
+        model.features_train = X_train.reset_index(drop=True)
+        model.labels_train = y_train.reset_index(drop=True)
+        power = params.get("power", 2)
+        preds = []
+        for i in range(len(X_test)):
+            preds.append(
+                model.predict_using_weighted_knn(
+                    X_test.iloc[i], params["k"], power=power
+                )
+            )
+        return np.asarray(preds)
+
     if model_name == "decision_tree":
         model = DecisionTreeClassifier(
             max_depth=params.get("max_depth"),
