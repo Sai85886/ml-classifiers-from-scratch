@@ -23,7 +23,7 @@ End-to-end comparison of **custom-built** machine learning classifiers on four r
 | Rice (binary) | Neural network | 0.930 | 0.939 |
 | Credit (binary) | Random forest | 0.874 | 0.861 |
 
-Full tables, motivation, and figure analysis: see [`final_project_report.tex`](final_project_report.tex) (compile with `pdflatex`).
+Full tables, motivation, and figure analysis: see generated outputs in [`outputs/`](outputs/) and [`outputs/summary_report_table.csv`](outputs/summary_report_table.csv).
 
 ---
 
@@ -107,7 +107,7 @@ Results are written under [`outputs/`](outputs/):
 ├── KNN/                    RandomForests/            NeuralNetworks/    NaiveBayes/
 ├── *.csv                   # Tabular datasets (except digits / zoo)
 ├── outputs/                # Generated metrics and figures
-└── final_project_report.tex
+└── outputs/summary_report_table.csv   # Cross-dataset best-config summary
 ```
 
 ---
